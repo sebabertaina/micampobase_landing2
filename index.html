@@ -1131,17 +1131,80 @@ let cultActual = "soja";
 let esAlq = false;
 let escenarios = [];
 
-const COSTOS_DEFAULT = {
-  labranza_primaria:45, siembra:35, pulverizaciones:60, cosecha:80,
-  semilla:80, fertilizante_base:120, fertilizante_cobertura:90,
-  herbicidas:70, fungicidas:40, insecticidas:20,
-  flete_corto:18, flete_largo:22, paritaria:1.0,
-  secada_zarandeo:8, comision_acopio:2.5, impuesto_debcred:1.2,
-  arrendamiento:0, costo_oportunidad:0, impuesto_inmobiliario:8,
-  seguro_granizo:0, interes_capital:6, gastos_admin:25,
+/* ── INSUMOS DETALLADOS POR CULTIVO ── */
+const INSUMOS_DEFAULT = {
+  soja: {
+    semilla:     [{prod:"Semilla soja RR",           dosis:70,   ud:"kg/ha",   precio:1.80}],
+    fert_base:   [{prod:"MAP (11-52-0)",              dosis:70,   ud:"kg/ha",   precio:0.95}],
+    fert_cob:    [],
+    herbicidas:  [{prod:"Glifosato 48%",              dosis:2.0,  ud:"l/ha",    precio:2.20},
+                  {prod:"Metribuzin",                 dosis:0.35, ud:"kg/ha",   precio:18.0}],
+    fungicidas:  [{prod:"Trifloxistrobina+Protio",    dosis:0.4,  ud:"l/ha",    precio:28.0}],
+    insecticidas:[{prod:"Clorpirifos 48%",            dosis:0.5,  ud:"l/ha",    precio:6.50}],
+  },
+  maiz: {
+    semilla:     [{prod:"Semilla maíz híbrido",       dosis:1,    ud:"bolsa/ha",precio:110.0}],
+    fert_base:   [{prod:"MAP (11-52-0)",              dosis:100,  ud:"kg/ha",   precio:0.95},
+                  {prod:"Urea (46-0-0)",              dosis:80,   ud:"kg/ha",   precio:0.55}],
+    fert_cob:    [{prod:"Urea cobertura (46-0-0)",    dosis:120,  ud:"kg/ha",   precio:0.55}],
+    herbicidas:  [{prod:"Atrazina 90%",               dosis:1.5,  ud:"kg/ha",   precio:4.80},
+                  {prod:"Acetoclor",                  dosis:1.8,  ud:"l/ha",    precio:5.20}],
+    fungicidas:  [{prod:"Azoxistrobina+Cipro",        dosis:0.5,  ud:"l/ha",    precio:22.0}],
+    insecticidas:[{prod:"Clorpirifos 48%",            dosis:0.6,  ud:"l/ha",    precio:6.50},
+                  {prod:"Lambdacialotrina",           dosis:0.15, ud:"l/ha",    precio:14.0}],
+  },
+  trigo: {
+    semilla:     [{prod:"Semilla trigo certificada",  dosis:160,  ud:"kg/ha",   precio:0.55}],
+    fert_base:   [{prod:"MAP (11-52-0)",              dosis:80,   ud:"kg/ha",   precio:0.95}],
+    fert_cob:    [{prod:"Urea cobertura (46-0-0)",    dosis:120,  ud:"kg/ha",   precio:0.55}],
+    herbicidas:  [{prod:"Metsulfurón metil",          dosis:6,    ud:"g/ha",    precio:0.28},
+                  {prod:"2,4-D amina",                dosis:0.8,  ud:"l/ha",    precio:3.50}],
+    fungicidas:  [{prod:"Tebuconazole 43%",           dosis:0.75, ud:"l/ha",    precio:12.0},
+                  {prod:"Estrobilurina+Triazol",      dosis:0.5,  ud:"l/ha",    precio:24.0}],
+    insecticidas:[{prod:"Pirimicarb",                 dosis:0.3,  ud:"kg/ha",   precio:22.0}],
+  },
+  girasol: {
+    semilla:     [{prod:"Semilla girasol híbrido",    dosis:1,    ud:"bolsa/ha",precio:85.0}],
+    fert_base:   [{prod:"MAP (11-52-0)",              dosis:70,   ud:"kg/ha",   precio:0.95}],
+    fert_cob:    [],
+    herbicidas:  [{prod:"Imazapir+Imazapic CL",       dosis:1.0,  ud:"l/ha",    precio:32.0},
+                  {prod:"Glifosato 48%",              dosis:1.5,  ud:"l/ha",    precio:2.20}],
+    fungicidas:  [{prod:"Boscalid+Dimoxistrobina",    dosis:0.6,  ud:"l/ha",    precio:26.0}],
+    insecticidas:[{prod:"Clorpirifos 48%",            dosis:0.5,  ud:"l/ha",    precio:6.50}],
+  },
+  carinata: {
+    semilla:     [{prod:"Semilla carinata certif.",   dosis:5,    ud:"kg/ha",   precio:4.50}],
+    fert_base:   [{prod:"MAP (11-52-0)",              dosis:60,   ud:"kg/ha",   precio:0.95}],
+    fert_cob:    [{prod:"Urea cobertura (46-0-0)",    dosis:80,   ud:"kg/ha",   precio:0.55}],
+    herbicidas:  [{prod:"Metazaclor",                 dosis:1.2,  ud:"l/ha",    precio:14.0},
+                  {prod:"Glifosato 48%",              dosis:1.5,  ud:"l/ha",    precio:2.20}],
+    fungicidas:  [{prod:"Tebuconazole 43%",           dosis:0.5,  ud:"l/ha",    precio:12.0}],
+    insecticidas:[{prod:"Clorpirifos 48%",            dosis:0.4,  ud:"l/ha",    precio:6.50}],
+  },
 };
 
+function totalInsumos(arr) { return arr.reduce((s,i) => s + i.dosis * i.precio, 0); }
+
+function calcCostosDesdeInsumos(cult) {
+  const ins = INSUMOS_DEFAULT[cult];
+  return {
+    labranza_primaria:45, siembra:35, pulverizaciones:60, cosecha:80,
+    semilla:             +totalInsumos(ins.semilla).toFixed(2),
+    fertilizante_base:   +totalInsumos(ins.fert_base).toFixed(2),
+    fertilizante_cobertura: +totalInsumos(ins.fert_cob).toFixed(2),
+    herbicidas:          +totalInsumos(ins.herbicidas).toFixed(2),
+    fungicidas:          +totalInsumos(ins.fungicidas).toFixed(2),
+    insecticidas:        +totalInsumos(ins.insecticidas).toFixed(2),
+    flete_corto:18, flete_largo:22, paritaria:1.0,
+    secada_zarandeo:8, comision_acopio:2.5, impuesto_debcred:1.2,
+    arrendamiento:0, costo_oportunidad:0, impuesto_inmobiliario:8,
+    seguro_granizo:0, interes_capital:6, gastos_admin:25,
+  };
+}
+
+const COSTOS_DEFAULT = calcCostosDesdeInsumos("soja");
 const costos = { ...COSTOS_DEFAULT };
+const insumos = JSON.parse(JSON.stringify(INSUMOS_DEFAULT));
 
 function loadConfig() {
   try {
@@ -1161,7 +1224,7 @@ function saveConfig() {
     precios[k] = CULTIVOS[k].precio;
     rindes[k]  = CULTIVOS[k].rinde;
   });
-  localStorage.setItem("cb_admin_config", JSON.stringify({ costos:{...costos}, precios, rindes }));
+  localStorage.setItem("cb_admin_config", JSON.stringify({ costos:{...costos}, precios, rindes, insumos }));
 }
 
 function resetConfig() {
@@ -1187,75 +1250,134 @@ function closeAdmin() {
 }
 
 function renderAdminPanel() {
-  const costGroups2 = {
-    "Labores":["labranza_primaria","siembra","pulverizaciones","cosecha"],
-    "Insumos":["semilla","fertilizante_base","fertilizante_cobertura","herbicidas","fungicidas","insecticidas"],
-    "Comercialización":["flete_corto","flete_largo","paritaria","secada_zarandeo","comision_acopio","impuesto_debcred"],
-    "Campo":["arrendamiento","costo_oportunidad","impuesto_inmobiliario","seguro_granizo"],
-    "Financieros":["interes_capital","gastos_admin"],
-  };
-  const costLabels2 = {
-    labranza_primaria:"Labranza primaria",siembra:"Siembra",pulverizaciones:"Pulverizaciones",cosecha:"Cosecha",
-    semilla:"Semilla",fertilizante_base:"Fertilizante base",fertilizante_cobertura:"Fertilizante cobertura",
-    herbicidas:"Herbicidas",fungicidas:"Fungicidas",insecticidas:"Insecticidas",
-    flete_corto:"Flete corto (U$S/t)",flete_largo:"Flete largo (U$S/t)",
-    paritaria:"Paritaria (%)",secada_zarandeo:"Secada / zarandeo",
-    comision_acopio:"Comisión acopio (%)",impuesto_debcred:"Imp. Déb/Cred (%)",
-    arrendamiento:"Arrendamiento (qq/ha)",costo_oportunidad:"Costo oportunidad",
-    impuesto_inmobiliario:"Impuesto inmobiliario",seguro_granizo:"Seguro granizo",
-    interes_capital:"Interés capital (%)",gastos_admin:"Gastos administración",
-  };
-  const PCT = ["paritaria","comision_acopio","impuesto_debcred","interes_capital"];
+  const cultSelec = document.getElementById("admin-cult-select")?.value || "soja";
+  const ins = insumos[cultSelec];
+  const c   = CULTIVOS[cultSelec];
 
-  // Precios de referencia por cultivo
-  let preciosHtml = `<div style="background:#f7f5f0;border-radius:14px;padding:20px;margin-bottom:20px">
-    <div style="font-size:11px;font-weight:700;color:#2A5C14;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:14px">💰 Precios de Referencia por Cultivo (U$S/t)</div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">`;
-  Object.entries(CULTIVOS).forEach(([k,c]) => {
-    preciosHtml += `<div>
-      <div style="font-size:11px;color:#9a9a8e;margin-bottom:5px">${c.emoji} ${c.nombre}</div>
-      <input type="number" value="${c.precio}" data-cult="${k}" data-tipo="precio"
-        style="width:100%;padding:8px;border:1.5px solid rgba(0,0,0,0.1);border-radius:8px;font-size:15px;font-weight:700;color:#2A5C14;outline:none;text-align:center"
-        oninput="CULTIVOS[this.dataset.cult].precio=+this.value">
-    </div>`;
-  });
-  preciosHtml += `</div></div>`;
+  const rubros = [
+    {key:"semilla",    label:"🌱 Semilla",                color:"#2A5C14"},
+    {key:"fert_base",  label:"🧪 Fertilizante Base",      color:"#0071e3"},
+    {key:"fert_cob",   label:"🧪 Fertilizante Cobertura", color:"#0071e3"},
+    {key:"herbicidas", label:"🌿 Herbicidas",             color:"#b8821a"},
+    {key:"fungicidas", label:"🔬 Fungicidas",             color:"#6e6e73"},
+    {key:"insecticidas",label:"🐛 Insecticidas",          color:"#c0392b"},
+  ];
 
-  // Rindes de referencia
-  let rindesHtml = `<div style="background:#f7f5f0;border-radius:14px;padding:20px;margin-bottom:20px">
-    <div style="font-size:11px;font-weight:700;color:#2A5C14;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:14px">🌾 Rindes de Referencia por Cultivo (kg/ha)</div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">`;
-  Object.entries(CULTIVOS).forEach(([k,c]) => {
-    rindesHtml += `<div>
-      <div style="font-size:11px;color:#9a9a8e;margin-bottom:5px">${c.emoji} ${c.nombre}</div>
-      <input type="number" value="${c.rinde}" data-cult="${k}" data-tipo="rinde"
-        style="width:100%;padding:8px;border:1.5px solid rgba(0,0,0,0.1);border-radius:8px;font-size:15px;font-weight:700;color:#b8821a;outline:none;text-align:center"
-        oninput="CULTIVOS[this.dataset.cult].rinde=+this.value">
-    </div>`;
-  });
-  rindesHtml += `</div></div>`;
+  function tablaInsumo(rub) {
+    const arr = ins[rub.key];
+    const total = totalInsumos(arr);
+    let rows = arr.map((item,idx) => `
+      <tr>
+        <td style="padding:8px 6px;font-size:12px;color:#1a1a18;font-weight:500">${item.prod}</td>
+        <td style="padding:8px 6px;text-align:center">
+          <input type="number" value="${item.dosis}" step="0.01"
+            style="width:72px;padding:4px 6px;border:1.5px solid rgba(0,0,0,0.1);border-radius:7px;font-size:13px;font-weight:600;color:#1a1a18;outline:none;text-align:right"
+            oninput="insumos['${cultSelec}']['${rub.key}'][${idx}].dosis=+this.value; actualizarTotalRubro('${cultSelec}','${rub.key}')">
+        </td>
+        <td style="padding:8px 6px;text-align:center;font-size:12px;color:#9a9a8e">${item.ud}</td>
+        <td style="padding:8px 6px;text-align:center">
+          <input type="number" value="${item.precio}" step="0.01"
+            style="width:72px;padding:4px 6px;border:1.5px solid rgba(0,0,0,0.1);border-radius:7px;font-size:13px;font-weight:600;color:#1a1a18;outline:none;text-align:right"
+            oninput="insumos['${cultSelec}']['${rub.key}'][${idx}].precio=+this.value; actualizarTotalRubro('${cultSelec}','${rub.key}')">
+        </td>
+        <td style="padding:8px 6px;text-align:right;font-size:13px;font-weight:700;color:${rub.color}" id="subtotal-${cultSelec}-${rub.key}-${idx}">
+          U$S ${(item.dosis*item.precio).toFixed(1)}
+        </td>
+      </tr>`).join("");
 
-  // Costos por grupo
-  let costosHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">`;
-  Object.entries(costGroups2).forEach(([g, keys]) => {
-    costosHtml += `<div style="background:#f7f5f0;border-radius:14px;padding:16px">
-      <div style="font-size:11px;font-weight:700;color:#2A5C14;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">${g}</div>`;
-    keys.forEach(k => {
-      costosHtml += `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05)">
-        <label style="font-size:12px;color:#5a5a52;flex:1">${costLabels2[k]}${PCT.includes(k)?' (%)':''}</label>
-        <input type="number" value="${costos[k]}" data-key="${k}"
-          style="width:72px;padding:5px 8px;border:1.5px solid rgba(0,0,0,0.1);border-radius:8px;font-size:13px;font-weight:600;color:#1a1a18;outline:none;text-align:right"
-          oninput="costos[this.dataset.key]=parseFloat(this.value)||0">
+    if (arr.length === 0) rows = `<tr><td colspan="5" style="padding:12px 6px;font-size:12px;color:#9a9a8e;text-align:center;font-style:italic">No aplica para este cultivo</td></tr>`;
+
+    return `
+      <div style="background:#fff;border-radius:14px;padding:18px;margin-bottom:14px;border:1px solid rgba(0,0,0,0.07)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:700;color:${rub.color};letter-spacing:0.05em;text-transform:uppercase">${rub.label}</div>
+          <div style="font-size:13px;font-weight:700;color:${rub.color}" id="total-rubro-${cultSelec}-${rub.key}">
+            Total: U$S ${total.toFixed(1)}/ha
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid rgba(0,0,0,0.08)">
+              <th style="padding:6px;text-align:left;font-size:10px;font-weight:700;color:#9a9a8e;letter-spacing:0.06em;text-transform:uppercase">Producto</th>
+              <th style="padding:6px;text-align:center;font-size:10px;font-weight:700;color:#9a9a8e;letter-spacing:0.06em;text-transform:uppercase">Dosis</th>
+              <th style="padding:6px;text-align:center;font-size:10px;font-weight:700;color:#9a9a8e;letter-spacing:0.06em;text-transform:uppercase">Unidad</th>
+              <th style="padding:6px;text-align:center;font-size:10px;font-weight:700;color:#9a9a8e;letter-spacing:0.06em;text-transform:uppercase">U$S/ud</th>
+              <th style="padding:6px;text-align:right;font-size:10px;font-weight:700;color:#9a9a8e;letter-spacing:0.06em;text-transform:uppercase">Total/ha</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
       </div>`;
-    });
-    costosHtml += `</div>`;
-  });
-  costosHtml += `</div>`;
+  }
 
-  document.getElementById("admin-body").innerHTML = preciosHtml + rindesHtml + costosHtml;
+  // Selector de cultivo
+  const selectorHtml = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;background:#f7f5f0;border-radius:14px;padding:16px">
+      <div style="font-size:12px;font-weight:700;color:#2A5C14;letter-spacing:0.05em;text-transform:uppercase;white-space:nowrap">📋 Cultivo a editar:</div>
+      <select id="admin-cult-select" onchange="renderAdminPanel()"
+        style="flex:1;padding:10px 14px;border:1.5px solid rgba(0,0,0,0.1);border-radius:10px;font-size:15px;font-weight:700;color:#2A5C14;outline:none;background:#fff;cursor:pointer">
+        ${Object.entries(CULTIVOS).map(([k,cv])=>`<option value="${k}" ${k===cultSelec?"selected":""}>${cv.emoji} ${cv.nombre}</option>`).join("")}
+      </select>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:#9a9a8e;margin-bottom:4px">Precio mercado</div>
+        <input type="number" value="${c.precio}" style="width:90px;padding:8px;border:1.5px solid rgba(0,0,0,0.1);border-radius:8px;font-size:15px;font-weight:700;color:#2A5C14;outline:none;text-align:center"
+          oninput="CULTIVOS['${cultSelec}'].precio=+this.value">
+        <div style="font-size:10px;color:#9a9a8e;margin-top:2px">U$S/t</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:#9a9a8e;margin-bottom:4px">Rinde esperado</div>
+        <input type="number" value="${c.rinde}" style="width:90px;padding:8px;border:1.5px solid rgba(0,0,0,0.1);border-radius:8px;font-size:15px;font-weight:700;color:#b8821a;outline:none;text-align:center"
+          oninput="CULTIVOS['${cultSelec}'].rinde=+this.value">
+        <div style="font-size:10px;color:#9a9a8e;margin-top:2px">kg/ha</div>
+      </div>
+    </div>`;
+
+  // Costos no-insumo (labores, comerc, campo, financieros)
+  const otrosCostosHtml = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:4px">
+      ${[
+        {titulo:"⚙️ Labores",     items:[["Labranza primaria","labranza_primaria"],["Siembra","siembra"],["Pulverizaciones","pulverizaciones"],["Cosecha","cosecha"]]},
+        {titulo:"🚛 Comercialización", items:[["Flete corto (U$S/t)","flete_corto"],["Flete largo (U$S/t)","flete_largo"],["Paritaria (%)","paritaria"],["Secada/zarandeo","secada_zarandeo"],["Com. acopio (%)","comision_acopio"],["Imp. Déb/Cred (%)","impuesto_debcred"]]},
+        {titulo:"🏡 Campo",       items:[["Arrendamiento (qq/ha)","arrendamiento"],["Costo oportunidad","costo_oportunidad"],["Imp. inmobiliario","impuesto_inmobiliario"],["Seguro granizo","seguro_granizo"]]},
+        {titulo:"💰 Financieros", items:[["Interés capital (%)","interes_capital"],["Gastos administración","gastos_admin"]]},
+      ].map(g=>`
+        <div style="background:#f7f5f0;border-radius:14px;padding:16px">
+          <div style="font-size:11px;font-weight:700;color:#2A5C14;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">${g.titulo}</div>
+          ${g.items.map(([lbl,key])=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05)">
+              <label style="font-size:12px;color:#5a5a52;flex:1">${lbl}</label>
+              <input type="number" value="${costos[key]}" data-key="${key}" step="0.01"
+                style="width:72px;padding:5px 8px;border:1.5px solid rgba(0,0,0,0.1);border-radius:8px;font-size:13px;font-weight:600;color:#1a1a18;outline:none;text-align:right"
+                oninput="costos[this.dataset.key]=parseFloat(this.value)||0">
+            </div>`).join("")}
+        </div>`).join("")}
+    </div>`;
+
+  document.getElementById("admin-body").innerHTML =
+    selectorHtml +
+    `<div style="font-size:12px;font-weight:700;color:#1a1a18;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:12px">🧪 Insumos — ${c.emoji} ${c.nombre}</div>` +
+    rubros.map(r => tablaInsumo(r)).join("") +
+    `<div style="font-size:12px;font-weight:700;color:#1a1a18;letter-spacing:0.05em;text-transform:uppercase;margin:20px 0 12px">⚙️ Otros Costos (comunes a todos los cultivos)</div>` +
+    otrosCostosHtml;
 }
 
+function actualizarTotalRubro(cult, rub) {
+  const arr = insumos[cult][rub];
+  const total = totalInsumos(arr);
+  const el = document.getElementById(`total-rubro-${cult}-${rub}`);
+  if(el) el.textContent = `Total: U$S ${total.toFixed(1)}/ha`;
+  // También actualizar costos[] para que recalcular() lo tome
+  const mapa = {semilla:"semilla",fert_base:"fertilizante_base",fert_cob:"fertilizante_cobertura",herbicidas:"herbicidas",fungicidas:"fungicidas",insecticidas:"insecticidas"};
+  if(mapa[rub]) costos[mapa[rub]] = +total.toFixed(2);
+}
 function adminGuardar() {
+  // Sincronizar totales de insumos -> costos[]
+  const rubMap = {semilla:"semilla",fert_base:"fertilizante_base",fert_cob:"fertilizante_cobertura",herbicidas:"herbicidas",fungicidas:"fungicidas",insecticidas:"insecticidas"};
+  Object.keys(CULTIVOS).forEach(cult => {
+    Object.entries(rubMap).forEach(([rub,ckey]) => {
+      costos[ckey] = +totalInsumos(insumos[cult][rub]).toFixed(2);
+    });
+  });
   saveConfig();
   recalcular();
   // Actualizar los inputs de rendimiento/precio en la app con el cultivo actual

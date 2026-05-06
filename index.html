@@ -1381,4 +1381,12 @@ async function submitWL() {
   document.getElementById("wl-form-wrap").style.display="none";
   document.getElementById("wl-success").style.display="block";
   btn.textContent="Anotarme gratis"; btn.disabled=false;
-  console.log("Emai
+}
+document.getElementById("wl-email").addEventListener("keydown", e => { if(e.key==="Enter") submitWL(); });
+
+/* ── INIT ── */
+renderCostosEditor();
+setTimeout(recalcular, 150);
+</script>
+</body>
+</html>

@@ -1116,6 +1116,9 @@ footer{background:var(--soil);padding:48px;border-top:1px solid rgba(255,255,255
 /* ═══════════════════════════════
    CÁLCULO FINANCIERO
 ═══════════════════════════════ */
+/* ── ADMIN PASSWORD ── */
+const ADMIN_PASS = "campobase2025";
+
 const CULTIVOS = {
   soja:    {nombre:"Soja",    emoji:"🫘", color:"#2d6a2d", rinde:3200, precio:320},
   maiz:    {nombre:"Maíz",    emoji:"🌽", color:"#c49a00", rinde:8000, precio:180},
@@ -1128,7 +1131,7 @@ let cultActual = "soja";
 let esAlq = false;
 let escenarios = [];
 
-const costos = {
+const COSTOS_DEFAULT = {
   labranza_primaria:45, siembra:35, pulverizaciones:60, cosecha:80,
   semilla:80, fertilizante_base:120, fertilizante_cobertura:90,
   herbicidas:70, fungicidas:40, insecticidas:20,
@@ -1136,6 +1139,143 @@ const costos = {
   secada_zarandeo:8, comision_acopio:2.5, impuesto_debcred:1.2,
   arrendamiento:0, costo_oportunidad:0, impuesto_inmobiliario:8,
   seguro_granizo:0, interes_capital:6, gastos_admin:25,
+};
+
+const costos = { ...COSTOS_DEFAULT };
+
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem("cb_admin_config");
+    if (saved) {
+      const cfg = JSON.parse(saved);
+      Object.assign(costos, cfg.costos || {});
+      Object.entries(cfg.precios || {}).forEach(([k,v]) => { if(CULTIVOS[k]) CULTIVOS[k].precio = +v; });
+      Object.entries(cfg.rindes || {}).forEach(([k,v]) => { if(CULTIVOS[k]) CULTIVOS[k].rinde = +v; });
+    }
+  } catch(e) { console.error("Config load error:", e); }
+}
+
+function saveConfig() {
+  const precios = {}, rindes = {};
+  Object.keys(CULTIVOS).forEach(k => {
+    precios[k] = CULTIVOS[k].precio;
+    rindes[k]  = CULTIVOS[k].rinde;
+  });
+  localStorage.setItem("cb_admin_config", JSON.stringify({ costos:{...costos}, precios, rindes }));
+}
+
+function resetConfig() {
+  localStorage.removeItem("cb_admin_config");
+  Object.assign(costos, COSTOS_DEFAULT);
+  CULTIVOS.soja.precio=320; CULTIVOS.maiz.precio=180; CULTIVOS.trigo.precio=230;
+  CULTIVOS.girasol.precio=420; CULTIVOS.carinata.precio=380;
+  CULTIVOS.soja.rinde=3200; CULTIVOS.maiz.rinde=8000; CULTIVOS.trigo.rinde=3500;
+  CULTIVOS.girasol.rinde=2200; CULTIVOS.carinata.rinde=2000;
+}
+
+/* ── PANEL ADMIN ── */
+function openAdmin() {
+  const pass = prompt("🔒 Contraseña del panel de administración:");
+  if (pass !== ADMIN_PASS) { if(pass !== null) alert("Contraseña incorrecta."); return; }
+  loadConfig();
+  renderAdminPanel();
+  document.getElementById("admin-overlay").style.display = "flex";
+}
+
+function closeAdmin() {
+  document.getElementById("admin-overlay").style.display = "none";
+}
+
+function renderAdminPanel() {
+  const costGroups2 = {
+    "Labores":["labranza_primaria","siembra","pulverizaciones","cosecha"],
+    "Insumos":["semilla","fertilizante_base","fertilizante_cobertura","herbicidas","fungicidas","insecticidas"],
+    "Comercialización":["flete_corto","flete_largo","paritaria","secada_zarandeo","comision_acopio","impuesto_debcred"],
+    "Campo":["arrendamiento","costo_oportunidad","impuesto_inmobiliario","seguro_granizo"],
+    "Financieros":["interes_capital","gastos_admin"],
+  };
+  const costLabels2 = {
+    labranza_primaria:"Labranza primaria",siembra:"Siembra",pulverizaciones:"Pulverizaciones",cosecha:"Cosecha",
+    semilla:"Semilla",fertilizante_base:"Fertilizante base",fertilizante_cobertura:"Fertilizante cobertura",
+    herbicidas:"Herbicidas",fungicidas:"Fungicidas",insecticidas:"Insecticidas",
+    flete_corto:"Flete corto (U$S/t)",flete_largo:"Flete largo (U$S/t)",
+    paritaria:"Paritaria (%)",secada_zarandeo:"Secada / zarandeo",
+    comision_acopio:"Comisión acopio (%)",impuesto_debcred:"Imp. Déb/Cred (%)",
+    arrendamiento:"Arrendamiento (qq/ha)",costo_oportunidad:"Costo oportunidad",
+    impuesto_inmobiliario:"Impuesto inmobiliario",seguro_granizo:"Seguro granizo",
+    interes_capital:"Interés capital (%)",gastos_admin:"Gastos administración",
+  };
+  const PCT = ["paritaria","comision_acopio","impuesto_debcred","interes_capital"];
+
+  // Precios de referencia por cultivo
+  let preciosHtml = `<div style="background:#f7f5f0;border-radius:14px;padding:20px;margin-bottom:20px">
+    <div style="font-size:11px;font-weight:700;color:#2A5C14;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:14px">💰 Precios de Referencia por Cultivo (U$S/t)</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">`;
+  Object.entries(CULTIVOS).forEach(([k,c]) => {
+    preciosHtml += `<div>
+      <div style="font-size:11px;color:#9a9a8e;margin-bottom:5px">${c.emoji} ${c.nombre}</div>
+      <input type="number" value="${c.precio}" data-cult="${k}" data-tipo="precio"
+        style="width:100%;padding:8px;border:1.5px solid rgba(0,0,0,0.1);border-radius:8px;font-size:15px;font-weight:700;color:#2A5C14;outline:none;text-align:center"
+        oninput="CULTIVOS[this.dataset.cult].precio=+this.value">
+    </div>`;
+  });
+  preciosHtml += `</div></div>`;
+
+  // Rindes de referencia
+  let rindesHtml = `<div style="background:#f7f5f0;border-radius:14px;padding:20px;margin-bottom:20px">
+    <div style="font-size:11px;font-weight:700;color:#2A5C14;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:14px">🌾 Rindes de Referencia por Cultivo (kg/ha)</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">`;
+  Object.entries(CULTIVOS).forEach(([k,c]) => {
+    rindesHtml += `<div>
+      <div style="font-size:11px;color:#9a9a8e;margin-bottom:5px">${c.emoji} ${c.nombre}</div>
+      <input type="number" value="${c.rinde}" data-cult="${k}" data-tipo="rinde"
+        style="width:100%;padding:8px;border:1.5px solid rgba(0,0,0,0.1);border-radius:8px;font-size:15px;font-weight:700;color:#b8821a;outline:none;text-align:center"
+        oninput="CULTIVOS[this.dataset.cult].rinde=+this.value">
+    </div>`;
+  });
+  rindesHtml += `</div></div>`;
+
+  // Costos por grupo
+  let costosHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">`;
+  Object.entries(costGroups2).forEach(([g, keys]) => {
+    costosHtml += `<div style="background:#f7f5f0;border-radius:14px;padding:16px">
+      <div style="font-size:11px;font-weight:700;color:#2A5C14;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">${g}</div>`;
+    keys.forEach(k => {
+      costosHtml += `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05)">
+        <label style="font-size:12px;color:#5a5a52;flex:1">${costLabels2[k]}${PCT.includes(k)?' (%)':''}</label>
+        <input type="number" value="${costos[k]}" data-key="${k}"
+          style="width:72px;padding:5px 8px;border:1.5px solid rgba(0,0,0,0.1);border-radius:8px;font-size:13px;font-weight:600;color:#1a1a18;outline:none;text-align:right"
+          oninput="costos[this.dataset.key]=parseFloat(this.value)||0">
+      </div>`;
+    });
+    costosHtml += `</div>`;
+  });
+  costosHtml += `</div>`;
+
+  document.getElementById("admin-body").innerHTML = preciosHtml + rindesHtml + costosHtml;
+}
+
+function adminGuardar() {
+  saveConfig();
+  recalcular();
+  // Actualizar los inputs de rendimiento/precio en la app con el cultivo actual
+  const c = CULTIVOS[cultActual];
+  document.getElementById("inp-rinde").value = c.rinde;
+  document.getElementById("inp-precio").value = c.precio;
+  closeAdmin();
+  // Feedback visual
+  const btn = document.getElementById("admin-save-btn");
+  btn.textContent = "¡Guardado! ✓";
+  btn.style.background = "#1a7a1a";
+  setTimeout(() => { btn.textContent = "Guardar cambios"; btn.style.background = ""; }, 2000);
+}
+
+function adminReset() {
+  if (!confirm("¿Restaurar todos los valores por defecto?")) return;
+  resetConfig();
+  renderAdminPanel();
+  recalcular();
+}
 };
 
 const costGroups = {
@@ -1385,8 +1525,37 @@ async function submitWL() {
 document.getElementById("wl-email").addEventListener("keydown", e => { if(e.key==="Enter") submitWL(); });
 
 /* ── INIT ── */
+loadConfig();
 renderCostosEditor();
 setTimeout(recalcular, 150);
 </script>
+
+<!-- ── PANEL ADMIN ── -->
+<div id="admin-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:24px;width:100%;max-width:860px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.4)">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#2A5C14,#3A7D1E);padding:22px 28px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:18px;font-weight:700;color:#fff;letter-spacing:-0.02em">⚙️ Panel de Administración</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:3px">Actualizá costos y precios de referencia — los cambios se guardan en este dispositivo</div>
+      </div>
+      <button onclick="closeAdmin()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
+    <!-- Body scrollable -->
+    <div id="admin-body" style="overflow-y:auto;padding:24px;flex:1"></div>
+    <!-- Footer -->
+    <div style="padding:18px 28px;border-top:1px solid rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:space-between;background:#f7f5f0">
+      <button onclick="adminReset()" style="padding:10px 20px;border:1.5px solid rgba(0,0,0,0.15);border-radius:20px;background:#fff;color:#5a5a52;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">↺ Restaurar defaults</button>
+      <div style="display:flex;gap:10px">
+        <button onclick="closeAdmin()" style="padding:10px 22px;border:1.5px solid rgba(0,0,0,0.12);border-radius:20px;background:#fff;color:#1a1a18;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">Cancelar</button>
+        <button id="admin-save-btn" onclick="adminGuardar()" style="padding:10px 28px;border:none;border-radius:20px;background:#2A5C14;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 12px rgba(42,92,20,0.3);transition:all .2s">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Botón flotante admin (esquina inferior derecha) -->
+<button onclick="openAdmin()" title="Panel de administración" style="position:fixed;bottom:28px;right:28px;z-index:500;width:48px;height:48px;border-radius:50%;background:#2A5C14;color:#fff;border:none;font-size:20px;cursor:pointer;box-shadow:0 4px 20px rgba(42,92,20,0.4);transition:all .2s;display:flex;align-items:center;justify-content:center" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">⚙️</button>
+
 </body>
 </html>
